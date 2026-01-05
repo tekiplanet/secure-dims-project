@@ -117,4 +117,28 @@ export class IdentityService {
         if (error) throw error;
         return true;
     }
+
+    /**
+     * Uploads an asset (image/document) to Supabase Storage.
+     * 
+     * @param file - The file to upload.
+     * @param identityId - The UUID of the identity holder.
+     */
+    static async uploadAsset(file: File, identityId: string) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${identityId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('identity-assets')
+            .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('identity-assets')
+            .getPublicUrl(filePath);
+
+        return publicUrl;
+    }
 }

@@ -33,6 +33,8 @@ export default function Home() {
   const [newAttr, setNewAttr] = useState({ name: '', value: '' });
   const [isRotating, setIsRotating] = useState(false);
   const [issuanceForm, setIssuanceForm] = useState({ fullName: '', email: '' });
+  const [assetFile, setAssetFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Editing State
   const [editingAttrId, setEditingAttrId] = useState<string | null>(null);
@@ -197,18 +199,28 @@ export default function Home() {
   };
 
   const handleAddAttribute = async () => {
-    if (!identity || !newAttr.name || !newAttr.value) {
-      alert('Please fill in both attribute name and value.');
+    if (!identity || !newAttr.name || (!newAttr.value && !assetFile)) {
+      showNotification('Please fill in both attribute name and value/file.', 'error');
       return;
     }
+
     setIsAddingAttr(true);
+    setIsUploading(!!assetFile);
+
     try {
+      let finalValue = newAttr.value;
+
+      // Handle File Upload if present
+      if (assetFile) {
+        finalValue = await IdentityService.uploadAsset(assetFile, identity.id);
+      }
+
       const { error } = await supabase
         .from('identity_attributes')
         .insert({
           identity_id: identity.id,
           attribute_name: newAttr.name,
-          attribute_value: newAttr.value,
+          attribute_value: finalValue,
           verification_status: 'pending'
         });
 
@@ -216,11 +228,13 @@ export default function Home() {
 
       await AuditService.logEvent(identity.id, 'ATTRIBUTE_ADDED', {
         attribute: newAttr.name,
-        value: newAttr.value
+        value: finalValue,
+        isAsset: !!assetFile
       });
 
       await loadIdentity(identity.did);
       setNewAttr({ name: '', value: '' });
+      setAssetFile(null);
       setIsAddingAttr(false);
       showNotification('Attribute added successfully!', 'success');
     } catch (err) {
@@ -228,6 +242,7 @@ export default function Home() {
       showNotification('Failed to add attribute.', 'error');
     } finally {
       setIsAddingAttr(false);
+      setIsUploading(false);
     }
   };
 
@@ -400,7 +415,16 @@ export default function Home() {
                     <p className="text-sm font-bold capitalize">{attr.attribute_name.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</p>
                   </td>
                   <td className="py-4">
-                    <p className="text-xs font-mono opacity-60">{attr.attribute_value}</p>
+                    {attr.attribute_value && (attr.attribute_value.startsWith('http') && (attr.attribute_value.match(/\.(jpeg|jpg|gif|png)$/) || attr.attribute_value.includes('identity-assets'))) ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg overflow-hidden border border-card-border bg-zinc-100">
+                          <img src={attr.attribute_value} alt={attr.attribute_name} className="w-full h-full object-cover" />
+                        </div>
+                        <a href={attr.attribute_value} target="_blank" rel="noreferrer" className="text-[10px] text-accent font-bold hover:underline">View Proof</a>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-mono opacity-60">{attr.attribute_value}</p>
+                    )}
                   </td>
                   <td className="py-4 text-center">
                     <span className={`text-[9px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${attr.verification_status === 'verified' ? 'bg-green-100 text-green-700' :
@@ -506,9 +530,20 @@ export default function Home() {
                       <div key={key} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-card-border">
                         <div>
                           <p className="text-[9px] text-accent font-bold uppercase tracking-widest">{key}</p>
-                          <p className="text-sm font-bold mt-0.5">{playgroundResult.claims[key].value}</p>
+                          {(playgroundResult.claims[key].value?.startsWith('http') && (playgroundResult.claims[key].value.match(/\.(jpeg|jpg|gif|png)$/) || playgroundResult.claims[key].value.includes('identity-assets'))) ? (
+                            <div className="mt-1 flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg overflow-hidden border border-card-border bg-zinc-100">
+                                <img src={playgroundResult.claims[key].value} alt={key} className="w-full h-full object-cover" />
+                              </div>
+                              <a href={playgroundResult.claims[key].value} target="_blank" rel="noreferrer" className="text-[10px] text-accent font-bold hover:underline">View Asset</a>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-bold mt-0.5">{playgroundResult.claims[key].value}</p>
+                          )}
                         </div>
-                        <span className="text-[9px] font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded uppercase">Verified</span>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase ${playgroundResult.claims[key].verified ? 'text-green-600 bg-green-100' : 'text-zinc-500 bg-zinc-100'}`}>
+                          {playgroundResult.claims[key].verified ? 'Verified' : 'Unverified'}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -560,6 +595,11 @@ export default function Home() {
                   }`}>
                   {selectedAttrs.includes(attr.attribute_name) && <CheckSmallIcon />}
                 </div>
+                {(attr.attribute_value && (attr.attribute_value.startsWith('http') && (attr.attribute_value.match(/\.(jpeg|jpg|gif|png)$/) || attr.attribute_value.includes('identity-assets')))) ? (
+                  <div className="w-8 h-8 rounded-md overflow-hidden border border-card-border bg-zinc-100 shrink-0">
+                    <img src={attr.attribute_value} alt={attr.attribute_name} className="w-full h-full object-cover" />
+                  </div>
+                ) : null}
                 <span className="font-bold capitalize">{attr.attribute_name.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</span>
               </div>
               <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-md ${attr.verification_status === 'verified' ? 'bg-green-100 text-green-700' : 'bg-zinc-100 text-zinc-500'
@@ -703,15 +743,26 @@ export default function Home() {
                       <button onClick={() => setEditingAttrId(null)} className="p-1 text-red-600 hover:bg-red-50 rounded">✕</button>
                     </div>
                   ) : (
-                    <div className="flex items-baseline gap-2 group/val">
-                      <p className="font-mono text-sm font-bold opacity-90 truncate max-w-[180px]">{attr.attribute_value}</p>
-                      <button
-                        onClick={() => { setEditingAttrId(attr.id); setEditingValue(attr.attribute_value); }}
-                        className="opacity-0 group-hover/val:opacity-100 transition-opacity p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-400"
-                        title="Edit Value"
-                      >
-                        ✏️
-                      </button>
+                    <div className="flex flex-col gap-2 mt-2">
+                      {attr.attribute_value && (attr.attribute_value.startsWith('http') && (attr.attribute_value.match(/\.(jpeg|jpg|gif|png)$/) || attr.attribute_value.includes('identity-assets'))) ? (
+                        <div className="w-24 h-16 rounded-lg overflow-hidden border border-card-border bg-zinc-100 dark:bg-zinc-800 group/img relative">
+                          <img src={attr.attribute_value} alt={attr.attribute_name} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                            <a href={attr.attribute_value} target="_blank" rel="noreferrer" className="text-[10px] text-white font-bold hover:underline">View Full</a>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-2 group/val">
+                          <p className="font-mono text-sm font-bold opacity-90 truncate max-w-[180px]">{attr.attribute_value}</p>
+                          <button
+                            onClick={() => { setEditingAttrId(attr.id); setEditingValue(attr.attribute_value); }}
+                            className="opacity-0 group-hover/val:opacity-100 transition-opacity p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-400"
+                            title="Edit Value"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -762,14 +813,52 @@ export default function Home() {
                 />
               </div>
               <div className="text-left">
-                <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1 mb-1 block">Claim Value</label>
-                <input
-                  type="text"
-                  placeholder="Enter value..."
-                  className="w-full px-3 py-2 text-sm border border-card-border rounded-xl bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-accent/10 outline-none transition-all"
-                  value={newAttr.value}
-                  onChange={(e) => setNewAttr({ ...newAttr, value: e.target.value })}
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1 block">Claim Value / Asset</label>
+                  <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-card-border overflow-hidden">
+                    <button
+                      onClick={() => setAssetFile(null)}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${!assetFile ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
+                    >
+                      Text
+                    </button>
+                    <button
+                      onClick={() => setNewAttr({ ...newAttr, value: '' })}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${assetFile ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
+                    >
+                      File
+                    </button>
+                  </div>
+                </div>
+
+                {!assetFile ? (
+                  <input
+                    type="text"
+                    placeholder="Enter value..."
+                    className="w-full px-3 py-2 text-sm border border-card-border rounded-xl bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-accent/10 outline-none transition-all"
+                    value={newAttr.value}
+                    onChange={(e) => setNewAttr({ ...newAttr, value: e.target.value })}
+                  />
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      id="asset-upload"
+                      className="hidden"
+                      onChange={(e) => setAssetFile(e.target.files?.[0] || null)}
+                      accept="image/*"
+                    />
+                    <label
+                      htmlFor="asset-upload"
+                      className="w-full px-3 py-2 text-sm border border-dashed border-accent/40 rounded-xl bg-accent/5 hover:bg-accent/10 cursor-pointer flex items-center justify-center gap-2 transition-all"
+                    >
+                      <span>📎</span>
+                      <span className="font-medium text-accent">
+                        {assetFile ? assetFile.name : 'Select ID Card / Photo'}
+                      </span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -999,12 +1088,25 @@ export default function Home() {
 
 const VerificationItem = ({ label, status, value, onVerify, isVerifying }: any) => {
   const isAuthority = AUTHORITY_ATTRIBUTES.includes(label);
+  const isImage = value && (value.startsWith('http') && (value.match(/\.(jpeg|jpg|gif|png)$/) || value.includes('identity-assets')));
 
   return (
     <div className="flex items-center justify-between py-3 border-b border-card-border last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors px-2 rounded-lg group">
-      <div>
-        <p className="text-sm font-bold capitalize">{label.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</p>
-        {value && <p className="text-xs text-zinc-500">{value}</p>}
+      <div className="flex items-center gap-4">
+        {isImage ? (
+          <div className="w-12 h-12 rounded-lg overflow-hidden border border-card-border bg-zinc-100 dark:bg-zinc-800">
+            <img src={value} alt={label} className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 text-zinc-400 text-xl italic font-serif">
+            {label.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div>
+          <p className="text-sm font-bold capitalize">{label.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</p>
+          {value && !isImage && <p className="text-xs text-zinc-500">{value}</p>}
+          {isImage && <p className="text-[10px] text-zinc-400 font-mono mt-0.5">Asset: {value.split('/').pop()?.substring(0, 15)}...</p>}
+        </div>
       </div>
       <div className="flex items-center gap-4">
         {status !== 'Verified' && status !== 'Pending' && (
