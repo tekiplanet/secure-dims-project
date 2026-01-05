@@ -9,6 +9,9 @@ import { VerificationService } from '@/lib/services/verification';
 import { ConsentService } from '@/lib/services/consent';
 import { VerifierService } from '@/lib/services/verifier';
 import { supabase } from '@/lib/supabase/client';
+import { AuditService } from '@/lib/services/audit';
+
+const AUTHORITY_ATTRIBUTES = ['institution', 'admin_check'];
 
 export default function Home() {
   const [identity, setIdentity] = useState<any>(null);
@@ -42,6 +45,7 @@ export default function Home() {
 
   // Notification State
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [attrToDelete, setAttrToDelete] = useState<any | null>(null);
 
   const showNotification = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type });
@@ -102,6 +106,11 @@ export default function Home() {
       localStorage.setItem('ozoro_did', result.did);
       localStorage.setItem('ozoro_priv_key', privateKey);
 
+      // Log the event
+      await AuditService.logEvent(result.id, 'IDENTITY_ISSUED', {
+        message: 'Decentralized identity successfully anchored and magic keys generated.'
+      });
+
       await loadIdentity(result.did);
       showNotification('Identity Issued Successfully!', 'success');
     } catch (err: any) {
@@ -117,8 +126,26 @@ export default function Home() {
     setVerifyingAttr(attrName);
     try {
       await VerificationService.sendVerificationChallenge(identity.id, attrName);
-      const result = await VerificationService.completeVerification(identity.id, attrName);
-      showNotification(`Verified ${attrName}! New Assurance Level: L${result.newTrustLevel}`, 'success');
+
+      const isAuthority = AUTHORITY_ATTRIBUTES.includes(attrName);
+
+      if (!isAuthority) {
+        // Self-verification completes immediately (simulated OTP)
+        const result = await VerificationService.completeVerification(identity.id, attrName);
+        await AuditService.logEvent(identity.id, 'ATTRIBUTE_VERIFIED', {
+          attribute: attrName,
+          method: 'Self-Service OTP'
+        });
+        showNotification(`Verified ${attrName}! New Assurance Level: L${result.newTrustLevel}`, 'success');
+      } else {
+        // Authority verification requires admin approval
+        await AuditService.logEvent(identity.id, 'VERIFICATION_REQUESTED', {
+          attribute: attrName,
+          level: 'L3/L4'
+        });
+        showNotification(`Verification request sent for ${attrName}. Awaiting Authority approval.`, 'info');
+      }
+
       await loadIdentity(identity.did);
     } catch (err) {
       console.error('Verification failed', err);
@@ -187,6 +214,11 @@ export default function Home() {
 
       if (error) throw error;
 
+      await AuditService.logEvent(identity.id, 'ATTRIBUTE_ADDED', {
+        attribute: newAttr.name,
+        value: newAttr.value
+      });
+
       await loadIdentity(identity.did);
       setNewAttr({ name: '', value: '' });
       setIsAddingAttr(false);
@@ -216,10 +248,8 @@ export default function Home() {
       localStorage.setItem('ozoro_priv_key', privateKey);
 
       // Log the event
-      await supabase.from('audit_logs').insert({
-        identity_id: identity.id,
-        event_type: 'KEY_ROTATION',
-        details: { message: 'Cryptographic key pair rotated by holder.' }
+      await AuditService.logEvent(identity.id, 'KEY_ROTATION', {
+        message: 'Cryptographic key pair rotated by holder for security refresh.'
       });
 
       showNotification('Keys rotated successfully! Your identity is now re-anchored.', 'success');
@@ -235,6 +265,10 @@ export default function Home() {
     if (!editingValue) return;
     try {
       await IdentityService.updateAttribute(id, editingValue);
+      await AuditService.logEvent(identity!.id, 'ATTRIBUTE_UPDATED', {
+        attribute_id: id,
+        new_value: editingValue
+      });
       showNotification('Attribute updated!', 'success');
       setEditingAttrId(null);
       if (identity) await loadIdentity(identity.did);
@@ -244,11 +278,19 @@ export default function Home() {
     }
   };
 
-  const handleDeleteAttribute = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this attribute?')) return;
+  const handleDeleteAttribute = (attr: any) => {
+    setAttrToDelete(attr);
+  };
+
+  const confirmDelete = async () => {
+    if (!attrToDelete) return;
     try {
-      await IdentityService.deleteAttribute(id);
+      await IdentityService.deleteAttribute(attrToDelete.id);
+      await AuditService.logEvent(identity!.id, 'ATTRIBUTE_DELETED', {
+        attribute: attrToDelete.attribute_name
+      });
       showNotification('Attribute deleted.', 'success');
+      setAttrToDelete(null);
       if (identity) await loadIdentity(identity.did);
     } catch (err) {
       console.error(err);
@@ -256,20 +298,61 @@ export default function Home() {
     }
   };
 
-  const handleApproveAttribute = async (id: string, status: 'verified' | 'rejected') => {
+  const handleApproveAttribute = async (id: string, status: 'verified' | 'rejected' | 'unverified') => {
     try {
       const { error } = await supabase
         .from('identity_attributes')
-        .update({ verification_status: status })
+        .update({
+          verification_status: status,
+          verified_at: status === 'verified' ? new Date().toISOString() : null
+        })
         .eq('id', id);
 
       if (error) throw error;
-      showNotification(`Attribute ${status}!`, status === 'verified' ? 'success' : 'info');
+
+      await AuditService.logEvent(identity!.id,
+        status === 'verified' ? 'ATTRIBUTE_VERIFIED' :
+          status === 'rejected' ? 'VERIFICATION_REJECTED' : 'VERIFICATION_REVOKED',
+        { attribute_id: id }
+      );
+
+      let message = `Attribute ${status}!`;
+      if (status === 'unverified') message = 'Verification revoked successfully.';
+
+      showNotification(message, status === 'verified' ? 'success' : 'info');
       if (identity) await loadIdentity(identity.did);
     } catch (err) {
       console.error(err);
-      showNotification('Action failed.', 'error');
+      showNotification('Operation failed.', 'error');
     }
+  };
+
+  const handleExportIdentity = () => {
+    if (!identity) return;
+
+    const didDocument = {
+      "@context": ["https://www.w3.org/ns/did/v1", "https://w3id.org/security/suites/jws-2020/v1"],
+      "id": identity.did,
+      "verificationMethod": [{
+        "id": `${identity.did}#keys-1`,
+        "type": "JsonWebKey2020",
+        "controller": identity.did,
+        "publicKeyJwk": identity.cryptographic_keys?.[0]?.public_key // Assuming the public key is stored in a format compatible with JWK for the demo
+      }],
+      "authentication": [`${identity.did}#keys-1`],
+      "assertionMethod": [`${identity.did}#keys-1`]
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(didDocument, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `did_document_ozoro_${identity.did.split(':').pop()}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+
+    showNotification('DID Document exported successfully!', 'success');
+    AuditService.logEvent(identity.id, 'CONSENT_GRANTED', { message: 'Identity document exported by holder.' });
   };
 
   const handlePlaygroundVerify = async () => {
@@ -327,7 +410,14 @@ export default function Home() {
                     </span>
                   </td>
                   <td className="py-4 text-right">
-                    {attr.verification_status !== 'verified' && (
+                    {attr.verification_status === 'verified' ? (
+                      <button
+                        onClick={() => handleApproveAttribute(attr.id, 'unverified')}
+                        className="px-3 py-1.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-lg hover:bg-red-100 border border-red-100 transition-colors"
+                      >
+                        Revoke Verification
+                      </button>
+                    ) : (
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => handleApproveAttribute(attr.id, 'verified')}
@@ -630,11 +720,11 @@ export default function Home() {
                     {attr.verification_status}
                   </span>
                   <button
-                    onClick={() => handleDeleteAttribute(attr.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                    onClick={() => handleDeleteAttribute(attr)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl"
                     title="Delete Attribute"
                   >
-                    🗑️
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" /></svg>
                   </button>
                 </div>
               </div>
@@ -657,39 +747,53 @@ export default function Home() {
               </div>
             </div>
           ))}
-          <div className="p-6 rounded-2xl border border-dashed border-card-border flex flex-col items-center justify-center min-h-[176px]">
-            {isAddingAttr ? (
-              <div className="w-full space-y-2">
+        </div>
+        <div className="p-6 rounded-2xl border border-dashed border-card-border flex flex-col items-center justify-center min-h-[176px]">
+          {isAddingAttr ? (
+            <div className="w-full space-y-4">
+              <div className="text-left">
+                <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1 mb-1 block">Attribute Type (e.g. Nationality)</label>
                 <input
                   type="text"
-                  placeholder="Attribute Type (e.g. DOB)"
-                  className="w-full p-2 text-xs border rounded-lg bg-white"
+                  placeholder="Enter type..."
+                  className="w-full px-3 py-2 text-sm border border-card-border rounded-xl bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-accent/10 outline-none transition-all"
                   value={newAttr.name}
                   onChange={(e) => setNewAttr({ ...newAttr, name: e.target.value })}
                 />
+              </div>
+              <div className="text-left">
+                <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1 mb-1 block">Claim Value</label>
                 <input
                   type="text"
-                  placeholder="Value"
-                  className="w-full p-2 text-xs border rounded-lg bg-white"
+                  placeholder="Enter value..."
+                  className="w-full px-3 py-2 text-sm border border-card-border rounded-xl bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-accent/10 outline-none transition-all"
                   value={newAttr.value}
                   onChange={(e) => setNewAttr({ ...newAttr, value: e.target.value })}
                 />
+              </div>
+              <div className="flex gap-2">
                 <button
                   onClick={handleAddAttribute}
-                  className="w-full py-2 bg-accent text-white text-xs font-bold rounded-lg"
+                  className="flex-grow py-3 bg-accent text-white text-xs font-bold rounded-xl shadow-lg shadow-accent/20 hover:scale-[1.02] transition-transform"
                 >
                   Save Attribute
                 </button>
+                <button
+                  onClick={() => setIsAddingAttr(false)}
+                  className="px-4 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-xs font-bold rounded-xl hover:bg-zinc-200"
+                >
+                  ✕
+                </button>
               </div>
-            ) : (
-              <button
-                onClick={() => setIsAddingAttr(true)}
-                className="text-zinc-400 font-medium hover:text-accent transition-colors"
-              >
-                + Add New Attribute
-              </button>
-            )}
-          </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAddingAttr(true)}
+              className="text-zinc-400 font-medium hover:text-accent transition-colors"
+            >
+              + Add New Attribute
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -767,14 +871,24 @@ export default function Home() {
                 <h3 className="text-2xl font-bold mb-4">Security Settings</h3>
                 <p className="text-zinc-500 mb-8 max-w-md mx-auto">Manage your DID documents and private key export options. All cryptographic operations are performed on-device.</p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button onClick={() => showNotification(`Your DID: ${identity.did}`, 'info')} className="px-8 py-3 bg-white dark:bg-zinc-800 border border-card-border rounded-xl font-bold text-sm hover:shadow-md transition-shadow">Export Identity Document</button>
                   <button
-                    onClick={handleRotateKeys}
-                    disabled={isRotating}
-                    className="px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-black transition-colors disabled:opacity-50"
+                    onClick={handleExportIdentity}
+                    className="px-8 py-3 bg-white dark:bg-zinc-800 border border-card-border rounded-xl font-bold text-sm hover:shadow-md transition-shadow"
                   >
-                    {isRotating ? 'Rotating...' : 'Rotate Key Pair'}
+                    Download JSON DID Document
                   </button>
+                  <div className="relative group/rotate">
+                    <button
+                      onClick={handleRotateKeys}
+                      disabled={isRotating}
+                      className="w-full px-8 py-3 bg-zinc-900 text-white rounded-xl font-bold text-sm hover:bg-black transition-colors disabled:opacity-50"
+                    >
+                      {isRotating ? 'Rotating...' : 'Rotate Magic Keys'}
+                    </button>
+                    <p className="absolute -bottom-12 left-1/2 -translate-x-1/2 w-48 text-[10px] bg-zinc-800 text-zinc-300 p-2 rounded-lg opacity-0 group-hover/rotate:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl border border-white/5">
+                      Recommended if you suspect your device is compromised. Generates new cryptographic keys while keeping your DID.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -840,6 +954,33 @@ export default function Home() {
           </div>
         )}
 
+        {/* Custom Delete Confirmation Modal */}
+        {attrToDelete && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="premium-card max-w-sm w-full p-8 border border-white/10 shadow-2xl animate-in zoom-in-95 duration-300">
+              <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl mx-auto mb-6">🗑️</div>
+              <h3 className="text-xl font-bold text-center mb-2">Delete Attribute?</h3>
+              <p className="text-sm text-zinc-500 text-center mb-8 leading-relaxed">
+                Are you sure you want to remove <strong>{attrToDelete.attribute_name.replace('_', ' ')}</strong>? This action will also invalidate any existing proofs using this claim.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={confirmDelete}
+                  className="w-full py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+                >
+                  Yes, Delete Forever
+                </button>
+                <button
+                  onClick={() => setAttrToDelete(null)}
+                  className="w-full py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-500 rounded-xl font-bold hover:bg-zinc-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Global Toast Notification */}
         {notification && (
           <div className={`fixed bottom-8 right-8 z-50 animate-in slide-in-from-right duration-300 flex items-center gap-3 px-6 py-4 rounded-2xl shadow-2xl border ${notification.type === 'success' ? 'bg-green-600 border-green-500 text-white' :
@@ -856,30 +997,34 @@ export default function Home() {
   );
 }
 
-const VerificationItem = ({ label, status, value, onVerify, isVerifying }: any) => (
-  <div className="flex items-center justify-between py-3 border-b border-card-border last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors px-2 rounded-lg group">
-    <div>
-      <p className="text-sm font-bold capitalize">{label.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</p>
-      {value && <p className="text-xs text-zinc-500">{value}</p>}
+const VerificationItem = ({ label, status, value, onVerify, isVerifying }: any) => {
+  const isAuthority = AUTHORITY_ATTRIBUTES.includes(label);
+
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-card-border last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors px-2 rounded-lg group">
+      <div>
+        <p className="text-sm font-bold capitalize">{label.replace(/([A-Z])/g, ' $1').replace('_', ' ')}</p>
+        {value && <p className="text-xs text-zinc-500">{value}</p>}
+      </div>
+      <div className="flex items-center gap-4">
+        {status !== 'Verified' && status !== 'Pending' && (
+          <button
+            onClick={onVerify}
+            disabled={isVerifying}
+            className="text-[10px] font-bold text-accent opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+          >
+            {isVerifying ? 'Processing...' : isAuthority ? 'Request Verification →' : 'Verify Now →'}
+          </button>
+        )}
+        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${status === 'Verified' ? 'bg-green-100 text-green-700' :
+          status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'
+          }`}>
+          {status}
+        </span>
+      </div>
     </div>
-    <div className="flex items-center gap-4">
-      {status !== 'Verified' && (
-        <button
-          onClick={onVerify}
-          disabled={isVerifying}
-          className="text-[10px] font-bold text-accent opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-        >
-          {isVerifying ? 'Verifying...' : 'Verify Now →'}
-        </button>
-      )}
-      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md ${status === 'Verified' ? 'bg-green-100 text-green-700' :
-        status === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-zinc-100 text-zinc-600'
-        }`}>
-        {status}
-      </span>
-    </div>
-  </div>
-);
+  );
+};
 
 const FeatureCard = ({ title, desc, icon }: any) => (
   <div className="premium-card p-6 border border-card-border group hover:border-accent/40 bg-zinc-50/50 dark:bg-zinc-900/50">

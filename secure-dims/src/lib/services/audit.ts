@@ -2,7 +2,14 @@ import { supabase } from '../supabase/client';
 
 export type AuditEventType =
     | 'IDENTITY_ISSUED'
+    | 'ATTRIBUTE_ADDED'
+    | 'ATTRIBUTE_UPDATED'
+    | 'ATTRIBUTE_DELETED'
     | 'ATTRIBUTE_VERIFIED'
+    | 'VERIFICATION_REQUESTED'
+    | 'VERIFICATION_REVOKED'
+    | 'VERIFICATION_REJECTED'
+    | 'KEY_ROTATION'
     | 'CRYPTO_PROOF_SUCCESS'
     | 'CRYPTO_PROOF_FAILURE'
     | 'CONSENT_GRANTED'

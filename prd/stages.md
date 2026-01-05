@@ -49,6 +49,6 @@ This document tracks the progress of the system implementation.
 - [x] 8.1: Identity Setup Flow (Dynamic Generation)
 - [x] 8.2: Dynamic Sidebar (Persona-based Navigation)
 - [x] 8.3: Selective Disclosure (Token Generation)
-- [x] 8.4: Verifier Playground (Public Verification Simulation)
-- [x] 8.5: Issuer Portal (Authority Approval Logic)
 - [x] 8.6: Audit Logs & Security Settings
+- [x] 8.7: Trust Triangle Realism (Self vs Authority verification)
+- [x] 8.8: Attribute Lifecycle (Revocation & Auto-Reset on Edit)

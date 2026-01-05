@@ -1,0 +1,21 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/did/v1",
+    "https://w3id.org/security/suites/jws-2020/v1"
+  ],
+  "id": "did:ozoro:bbd8a51d87d24a8aa410ca3e68c91635",
+  "verificationMethod": [
+    {
+      "id": "did:ozoro:bbd8a51d87d24a8aa410ca3e68c91635#keys-1",
+      "type": "JsonWebKey2020",
+      "controller": "did:ozoro:bbd8a51d87d24a8aa410ca3e68c91635",
+      "publicKeyJwk": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtAuJT0vZUjIc/ZtbJR1OU5rPGOhJtwaa+L7KTszRbvjv7IRI/zNx+zDRqD1yrJb0AR20TAGBCV/hP7NVLC1FugxapHpabPy5aqMfEpsB0Ia7DAVZhaAvOKXs5OIN/yVkv6PfeBKnAY4bSNTMYQLnjnUOwpjW7YOsi/mHweQjl80UjjhESE4dKZefnaa0UL27F+yniEwp/GaZVaxvs2bwVrc82YYEeT9TtYk5TkBDAvOi/0ZBKKrlorPbfmUio8H30GcVnS08hg3yhhhHMW9ZJyO+GKG41T9e3xi43eby2/UC+JRQIQnYi1sHwUe2qwFuBWA+FF89EFV/eEqdBP0zMQIDAQAB"
+    }
+  ],
+  "authentication": [
+    "did:ozoro:bbd8a51d87d24a8aa410ca3e68c91635#keys-1"
+  ],
+  "assertionMethod": [
+    "did:ozoro:bbd8a51d87d24a8aa410ca3e68c91635#keys-1"
+  ]
+}
