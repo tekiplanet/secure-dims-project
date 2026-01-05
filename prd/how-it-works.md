@@ -41,7 +41,18 @@ If you're not sure what values to use, here are some common examples for your pr
 
 ---
 
-## 📂 3. Section Breakdown: What is each room for?
+## � 3. Visual Attributes (Photos & Documents)
+
+Identity isn't just text. Secure-DIMS allows you to attach **Visual Assets** to your profile.
+
+-   **Uploads**: You can upload passport photos, government IDs, or certificates.
+-   **Security**: Files are stored in a secured vault (`identity-assets`) on our platform.
+-   **Verification**: Authorities (Issuers) use these images to visually confirm your identity before granting a "Gold Star" verification.
+-   **Previews**: The system generates secure thumbnails so you and any authorised verifiers can see the document without downloading raw files.
+
+---
+
+## �📂 4. Section Breakdown: What is each room for?
 
 We have split the dashboard into three logical areas based on the **SSI Trust Triangle**.
 
@@ -61,7 +72,7 @@ We have split the dashboard into three logical areas based on the **SSI Trust Tr
 
 ---
 
-## 🔑 4. The Science (How it works under the hood)
+## 🔑 5. The Science (How it works under the hood)
 
 ### The Identity Lifecycle
 The system doesn't use standard usernames/passwords. It uses **Asymmetric Cryptography**.
@@ -98,7 +109,7 @@ When a verifier wants to check you, you don't give them your private key.
 
 ---
 
-## 🛡️ 5. Attribute Lifecycle & Revocation
+## 🛡️ 6. Attribute Lifecycle & Revocation
 
 To ensure persistent trust, identity attributes follow strict lifecycle rules:
 
@@ -118,7 +129,7 @@ To prevent fraud, the system records every significant event in an **Immutable L
 
 ---
 
-## 🔑 6. Advanced Security & Portability
+## 🔑 7. Advanced Security & Portability
 
 ### Key Rotation (Security Refresh)
 Imagine your "Magic Key" (Private Key) is lost or compromised. In our system, you can **Rotate** your keys.
@@ -131,7 +142,7 @@ Your identity belongs to **YOU**, not us.
 
 ---
 
-## ️ 7. Selective Disclosure (Novice Edition)
+## ️ 8. Selective Disclosure (Novice Edition)
 
 Imagine you want to buy a ticket for a scary movie. The ticket seller needs to know your **Age**, but they don't need to know your **Home Address**.
 
@@ -140,7 +151,7 @@ Imagine you want to buy a ticket for a scary movie. The ticket seller needs to k
 
 ---
 
-## 🌟 8. Summary for a Kindergarten Genius:
+## 🌟 9. Summary for a Kindergarten Genius:
 1.  **Wallet**: Your backpack with your stickers.
 2.  **Authority**: The teacher who puts a "Gold Star" on your stickers.
 3.  **Verifier**: The librarian who checks if you have a "Gold Star" before letting you borrow a book.

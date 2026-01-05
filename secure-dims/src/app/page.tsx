@@ -34,6 +34,7 @@ export default function Home() {
   const [isRotating, setIsRotating] = useState(false);
   const [issuanceForm, setIssuanceForm] = useState({ fullName: '', email: '' });
   const [assetFile, setAssetFile] = useState<File | null>(null);
+  const [isAssetMode, setIsAssetMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   // Editing State
@@ -235,6 +236,7 @@ export default function Home() {
       await loadIdentity(identity.did);
       setNewAttr({ name: '', value: '' });
       setAssetFile(null);
+      setIsAssetMode(false);
       setIsAddingAttr(false);
       showNotification('Attribute added successfully!', 'success');
     } catch (err) {
@@ -517,7 +519,9 @@ export default function Home() {
                 <h4 className={`text-lg font-bold ${playgroundResult.verified ? 'text-green-800' : 'text-red-800'}`}>
                   {playgroundResult.verified ? 'Valid Proof' : 'Invalid Proof'}
                 </h4>
-                <p className="text-xs text-zinc-500 font-medium">{playgroundResult.verified ? 'Cryptographic signature is authentic.' : playgroundResult.error}</p>
+                <p className={`text-xs font-medium ${playgroundResult.verified ? 'text-green-800/70' : 'text-red-800/70'}`}>
+                  {playgroundResult.verified ? 'Cryptographic signature is authentic.' : playgroundResult.error}
+                </p>
               </div>
             </div>
 
@@ -817,21 +821,21 @@ export default function Home() {
                   <label className="text-[10px] uppercase font-bold text-zinc-400 ml-1 block">Claim Value / Asset</label>
                   <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-card-border overflow-hidden">
                     <button
-                      onClick={() => setAssetFile(null)}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${!assetFile ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
+                      onClick={() => { setIsAssetMode(false); setAssetFile(null); }}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${!isAssetMode ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
                     >
                       Text
                     </button>
                     <button
-                      onClick={() => setNewAttr({ ...newAttr, value: '' })}
-                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${assetFile ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
+                      onClick={() => { setIsAssetMode(true); setNewAttr({ ...newAttr, value: '' }); }}
+                      className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${isAssetMode ? 'bg-white dark:bg-zinc-700 shadow-sm text-accent' : 'text-zinc-500'}`}
                     >
                       File
                     </button>
                   </div>
                 </div>
 
-                {!assetFile ? (
+                {!isAssetMode ? (
                   <input
                     type="text"
                     placeholder="Enter value..."
