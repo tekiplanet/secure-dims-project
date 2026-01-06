@@ -56,7 +56,7 @@ export class VerifierService {
                 identityId: identity.id,
                 trustLevel: identity.security_level,
                 claims: payload.attrs,
-                auditTrail: `Verified by OZORO-ID-SYSTEM at ${new Date().toISOString()}`
+                auditTrail: `Verified by VORTEX-ID-SYSTEM at ${new Date().toISOString()}`
             };
 
         } catch (err: any) {

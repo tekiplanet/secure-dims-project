@@ -28,22 +28,23 @@ This causes Next.js to package only the necessary `node_modules` and server file
 
 ## Configuration Files
 
-- **`Dockerfile`**: Defines the multi-stage build process.
-- **`docker-compose.yml`**: Defines the `secure-dims` service, port mappings (3000:3000), and environment variable loading.
-- **`.dockerignore`**: Ensures that local `node_modules`, `.next` folders, and sensitive files are not sent to the Docker daemon, speeding up builds and keeping the image clean.
+- **`Dockerfile`**: Defines the multi-stage build process. It now accepts `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` as build arguments to allow Next.js to prerender pages during the build.
+- **`docker-compose.yml`**: Defines the `secure-dims` service. It passes the build arguments from your local `.env` file to the Docker build process.
+- **`.dockerignore`**: Ensures that local `node_modules`, `.next` folders, and sensitive files are not sent to the Docker daemon.
 
 ## How to Run
 
 1.  Open a terminal (PowerShell or Bash).
-2.  Navigate to the `secure-dims` directory:
-    ```bash
-    cd "c:\Users\user\Documents\OZORO PROJECTS\2026 PROJECTS\Secure-Digital-IMS\secure-dims"
+2.  Navigate to the `secure-dims` directory.
+3.  **Important**: Docker Compose looks for a file named `.env` to pass variables to the build process. If you have `.env.local`, copy it to `.env`:
+    ```powershell
+    copy .env.local .env
     ```
-3.  Start the application with Docker Compose:
+4.  Start the application with Docker Compose:
     ```bash
     docker-compose up --build
     ```
-4.  Once the logs show `✓ Ready in ...`, access the application at:
+5.  Once the logs show `✓ Ready in ...`, access the application at:
     [http://localhost:3000](http://localhost:3000)
 
 ## Environment Variables
@@ -54,6 +55,21 @@ The container automatically reads variables from `secure-dims/.env.local`. Ensur
 | :--- | :--- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Your project's Supabase URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your project's Supabase Anonymous Key |
+
+## Reflecting Code Changes
+
+Since this Docker setup is optimized for **production/standalone** use (which is best for sharing the project), it does not use hot-reloading by default. 
+
+To reflect changes you've made to the code:
+1.  Save your files.
+2.  Stop the current container (press `Ctrl + C` in the terminal).
+3.  Run the build command again:
+    ```bash
+    docker-compose up --build
+    ```
+
+> [!TIP]
+> For active development where you want instant updates (hot reloading), it is recommended to run the project locally outside of Docker using `npm run dev` in the `secure-dims` directory.
 
 ## Troubleshooting
 

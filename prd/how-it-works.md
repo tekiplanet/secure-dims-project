@@ -1,4 +1,4 @@
-# 🧠 The OZORO Identity Ecosystem: The Complete Guide
+# 🧠 The VORTEX Identity Ecosystem: The Complete Guide
 
 Welcome to the future of the internet! This document explains how Secure-DIMS works—from the simple "Gold Star" analogy to the complex cryptographic code running behind the scenes.
 
@@ -33,7 +33,7 @@ If you're not sure what values to use, here are some common examples for your pr
 | :--- | :--- | :--- |
 | **Full Name** | Your legal name | `John Doe`, `Jane Smith` |
 | **Email** | Your contact address | `john@example.com` |
-| **Institution** | An organization that vouches for you | `Ozoro University`, `Tekiplanet Corp`, `Ministry of Health` |
+| **Institution** | An organization that vouches for you | `VORTEX University`, `Tekiplanet Corp`, `Ministry of Health` |
 | **Identity Number** | A unique ID from your country/work | `NIN-12345`, `EMP-8890` |
 
 > [!TIP]
@@ -84,7 +84,7 @@ sequenceDiagram
     participant Supabase
     User->>Browser: Clicks "Issue Identity"
     Browser->>Browser: Generates RSA Key Pair (Private/Public)
-    Browser->>Browser: Creates Unique DID (did:ozoro:...)
+    Browser->>Browser: Creates Unique DID (did:VORTEX:...)
     Browser->>Supabase: Stores DID + Public Key + Metadata
     Supabase-->>Browser: Identity Anchored Successfully
 ```
@@ -147,7 +147,7 @@ Your identity belongs to **YOU**, not us.
 Imagine you want to buy a ticket for a scary movie. The ticket seller needs to know your **Age**, but they don't need to know your **Home Address**.
 
 - **Normal ID Card:** You show it, and they see everything.
-- **OZORO ID:** You pick **ONLY** the "Age" box. Our system makes a special temporary ticket that *only* proves your age. This is the ultimate privacy.
+- **VORTEX ID:** You pick **ONLY** the "Age" box. Our system makes a special temporary ticket that *only* proves your age. This is the ultimate privacy.
 
 ---
 

@@ -33,7 +33,7 @@ export default function DashboardLayout({
             <aside className="w-64 border-r border-card-border p-6 flex flex-col gap-8 glass-morphism sticky top-0 h-screen">
                 <div className="flex items-center gap-2 px-2">
                     <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white font-bold">O</div>
-                    <h1 className="text-xl font-bold tracking-tight">Ozoro ID</h1>
+                    <h1 className="text-xl font-bold tracking-tight">VORTEX ID</h1>
                 </div>
 
                 <nav className="flex flex-col gap-6 flex-grow overflow-y-auto custom-scrollbar pr-2">

@@ -6,7 +6,7 @@ This document tracks the progress of the system implementation.
 *Goal: Establishing the core identity record with cryptographic anchors.*
 - [x] Create Next.js project in `secure-dims`
 - [x] Setup Supabase SQL schema (Identities, Keys tables)
-- [x] Implementation of Ozoro-DID generation logic
+- [x] Implementation of VORTEX-DID generation logic
 - [x] Client-side cryptographic key pair generation (RSA/ECDSA)
 - [x] Identity Issuance Bridge (Public Key submission & Metadata storage)
 

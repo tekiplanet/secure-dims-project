@@ -89,8 +89,8 @@ Now **this** is a system.
 
 ```json
 {
-  "did": "did:ozoro:9f3a...",
-  "issued_by": "OZORO-ID",
+  "did": "did:VORTEX:9f3a...",
+  "issued_by": "VORTEX-ID",
   "trust_level": "L2",
   "issued_at": "2026-01-05"
 }

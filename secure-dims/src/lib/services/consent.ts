@@ -29,7 +29,7 @@ export class ConsentService {
 
         // 2. Build the disclosure payload
         const payload = {
-            iss: 'OZORO-ID-SYSTEM',
+            iss: 'VORTEX-ID-SYSTEM',
             sub: identityId,
             attrs: attributes?.reduce((acc: any, curr) => {
                 acc[curr.attribute_name] = {

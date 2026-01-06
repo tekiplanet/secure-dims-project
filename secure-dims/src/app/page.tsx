@@ -82,7 +82,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const savedDID = localStorage.getItem('ozoro_did');
+    const savedDID = localStorage.getItem('VORTEX_did');
     if (savedDID) {
       loadIdentity(savedDID);
     }
@@ -106,8 +106,8 @@ export default function Home() {
         institution: 'Not Provided'
       });
 
-      localStorage.setItem('ozoro_did', result.did);
-      localStorage.setItem('ozoro_priv_key', privateKey);
+      localStorage.setItem('VORTEX_did', result.did);
+      localStorage.setItem('VORTEX_priv_key', privateKey);
 
       // Log the event
       await AuditService.logEvent(result.id, 'IDENTITY_ISSUED', {
@@ -163,7 +163,7 @@ export default function Home() {
     setIsGeneratingToken(true);
     setVerificationResult(null);
     try {
-      const privateKey = localStorage.getItem('ozoro_priv_key');
+      const privateKey = localStorage.getItem('VORTEX_priv_key');
       if (!privateKey) throw new Error('Private key not found in storage');
 
       const { token } = await ConsentService.generateDisclosureToken(
@@ -262,7 +262,7 @@ export default function Home() {
 
       if (error) throw error;
 
-      localStorage.setItem('ozoro_priv_key', privateKey);
+      localStorage.setItem('VORTEX_priv_key', privateKey);
 
       // Log the event
       await AuditService.logEvent(identity.id, 'KEY_ROTATION', {
@@ -363,7 +363,7 @@ export default function Home() {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(didDocument, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `did_document_ozoro_${identity.did.split(':').pop()}.json`);
+    downloadAnchorNode.setAttribute("download", `did_document_VORTEX_${identity.did.split(':').pop()}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -931,7 +931,7 @@ export default function Home() {
             <p className="text-zinc-500 mt-2">
               {identity
                 ? `Managing your ${activeTab} and cryptographic assets.`
-                : 'Create your unique digital identity anchored on the Ozoro platform.'}
+                : 'Create your unique digital identity anchored on the VORTEX platform.'}
             </p>
           </div>
 
@@ -991,7 +991,7 @@ export default function Home() {
             <div className="w-24 h-24 rounded-full bg-accent/5 flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🪪</div>
             <h3 className="text-3xl font-bold mb-4 tracking-tight">Identity Setup Required</h3>
             <p className="text-zinc-500 max-w-lg mx-auto text-base leading-relaxed mb-10">
-              Welcome to <strong>OZORO Secure DIMS</strong>. This platform uses the <strong>Self-Sovereign Identity (SSI)</strong> model.
+              Welcome to <strong>VORTEX Secure DIMS</strong>. This platform uses the <strong>Self-Sovereign Identity (SSI)</strong> model.
               There are no passwords stored on our servers. Instead, you control your identity through unique cryptographic keys generated right here in your browser.
             </p>
 
@@ -1028,7 +1028,7 @@ export default function Home() {
                 <label className="text-[10px] uppercase font-bold text-zinc-400 ml-4 mb-1 block">Email Address</label>
                 <input
                   type="email"
-                  placeholder="e.g. john@ozoro.edu"
+                  placeholder="e.g. john@VORTEX.edu"
                   className="w-full px-6 py-4 bg-white dark:bg-zinc-900 border border-card-border rounded-2xl focus:ring-2 focus:ring-accent/20 outline-none transition-all"
                   value={issuanceForm.email}
                   onChange={(e) => setIssuanceForm({ ...issuanceForm, email: e.target.value })}
@@ -1043,7 +1043,7 @@ export default function Home() {
             >
               {isIssuing ? 'Generating Vault...' : 'Issue My Digital Identity'}
             </button>
-            <p className="mt-6 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Anchored on the OZORO Protocol</p>
+            <p className="mt-6 text-[10px] text-zinc-400 uppercase tracking-widest font-bold">Anchored on the VORTEX Protocol</p>
           </div>
         )}
 
